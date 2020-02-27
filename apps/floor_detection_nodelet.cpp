@@ -37,7 +37,7 @@ public:
 
     initialize_params();
 
-    points_sub = nh.subscribe("/filtered_points", 256, &FloorDetectionNodelet::cloud_callback, this);
+    points_sub = nh.subscribe(points_topic, 256, &FloorDetectionNodelet::cloud_callback, this);
     floor_pub = nh.advertise<hdl_graph_slam::FloorCoeffs>("/floor_detection/floor_coeffs", 32);
 
     read_until_pub = nh.advertise<std_msgs::Header>("/floor_detection/read_until", 32);

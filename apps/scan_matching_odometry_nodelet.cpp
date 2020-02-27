@@ -39,7 +39,7 @@ public:
 
     initialize_params();
 
-    points_sub = nh.subscribe("/filtered_points", 256, &ScanMatchingOdometryNodelet::cloud_callback, this);
+    points_sub = nh.subscribe(points_topic, 256, &ScanMatchingOdometryNodelet::cloud_callback, this);
     read_until_pub = nh.advertise<std_msgs::Header>("/scan_matching_odometry/read_until", 32);
     odom_pub = nh.advertise<nav_msgs::Odometry>("/odom", 32);
   }
@@ -52,6 +52,7 @@ private:
     auto& pnh = private_nh;
     points_topic = pnh.param<std::string>("points_topic", "/velodyne_points");
     odom_frame_id = pnh.param<std::string>("odom_frame_id", "odom");
+    base_frame_id = pnh.param<std::string>("base_frame_id", "base_link");
 
     // The minimum tranlational distance and rotation angle between keyframes.
     // If this value is zero, frames are always compared with the previous frame
@@ -88,6 +89,16 @@ private:
     }
 
     registration = select_registration_method(pnh);
+
+    // init values for calc velocity by positions(for odometry)
+    prev_odom.header.stamp = ros::Time(0.0);
+    prev_odom.header.frame_id = odom_frame_id;
+    prev_odom.pose.pose.position.x = 0.0;
+    prev_odom.pose.pose.position.y = 0.0;
+    prev_odom.pose.pose.position.z = 0.0;
+    prev_odom.pose.pose.orientation.x = 0.0;
+    prev_odom.pose.pose.orientation.y = 0.0;
+    prev_odom.pose.pose.orientation.z = 0.0;
   }
 
   /**
@@ -204,8 +215,7 @@ private:
    */
   void publish_odometry(const ros::Time& stamp, const std::string& base_frame_id, const Eigen::Matrix4f& pose) {
     // broadcast the transform over tf
-    geometry_msgs::TransformStamped odom_trans = matrix2transform(stamp, pose, odom_frame_id, base_frame_id);
-    odom_broadcaster.sendTransform(odom_trans);
+    geometry_msgs::TransformStamped odom_trans = matrix2transform(stamp, pose, odom_frame_id, this->base_frame_id);
 
     // publish the transform
     nav_msgs::Odometry odom;
@@ -218,11 +228,50 @@ private:
     odom.pose.pose.orientation = odom_trans.transform.rotation;
 
     odom.child_frame_id = base_frame_id;
-    odom.twist.twist.linear.x = 0.0;
-    odom.twist.twist.linear.y = 0.0;
-    odom.twist.twist.angular.z = 0.0;
+    //odom.twist.twist.linear.x = 0.0;
+    //odom.twist.twist.linear.y = 0.0;
+    //odom.twist.twist.angular.z = 0.0;
 
+    prev_odom.child_frame_id = base_frame_id;
+    double x = odom.pose.pose.position.x;
+    double px = prev_odom.pose.pose.position.x;
+    double y = odom.pose.pose.position.y;
+    double py = prev_odom.pose.pose.position.y;
+    double ox = odom.pose.pose.orientation.x;
+    double pox = prev_odom.pose.pose.orientation.x;
+    double oy = odom.pose.pose.orientation.y;
+    double poy = prev_odom.pose.pose.orientation.y;
+    double oz = odom.pose.pose.orientation.z;
+    double poz = prev_odom.pose.pose.orientation.z;
+    double dt = (stamp-prev_odom.header.stamp).toSec();
+
+    odom.twist.twist.linear.x = (x-px)/dt;
+    odom.twist.twist.linear.y = (y-py)/dt;
+    odom.twist.twist.angular.x = (ox-pox)/dt;
+    odom.twist.twist.angular.y = (oy-poy)/dt;
+    odom.twist.twist.angular.z = (oz-poz)/dt;
+
+    odom.pose.covariance =
+			{	.001,		.0,		.0,		.0,		.0,		.0,
+				.0,		.001,		.0,		.0,		.0,		.0,
+				.0,		.0,		.01, 		.0,		.0,		.0,
+				.0,		.0,		.0,		.01,		.0,		.0,
+				.0,		.0,		.0,		.0,		.01,		.0,
+				.0,		.0,		.0,		.0,		.0,		.001		};
+		odom.twist.covariance =
+			{	.001,		.0,		.0,		.0,		.0,		.0,
+				.0,		.001,		.0,		.0,		.0,		.0,
+				.0,		.0,		.01, 		.0,		.0,		.0,
+				.0,		.0,		.0,		.01,		.0,		.0,
+				.0,		.0,		.0,		.0,		.01,		.0,
+				.0,		.0,		.0,		.0,		.0,		.001		};
+
+
+    prev_odom = odom;
     odom_pub.publish(odom);
+    if (publish_tf) {
+      odom_broadcaster.sendTransform(odom_trans);
+    }
   }
 
 
@@ -239,6 +288,8 @@ private:
 
   std::string points_topic;
   std::string odom_frame_id;
+  std::string base_frame_id;
+  bool publish_tf;
   ros::Publisher read_until_pub;
 
   // keyframe parameters
@@ -260,6 +311,8 @@ private:
   //
   pcl::Filter<PointT>::Ptr downsample_filter;
   pcl::Registration<PointT, PointT>::Ptr registration;
+
+  nav_msgs::Odometry prev_odom;
 };
 
 }
