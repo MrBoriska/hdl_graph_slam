@@ -53,6 +53,7 @@ private:
     points_topic = pnh.param<std::string>("points_topic", "/velodyne_points");
     odom_frame_id = pnh.param<std::string>("odom_frame_id", "odom");
     base_frame_id = pnh.param<std::string>("base_frame_id", "base_link");
+    publish_tf = pnh.param<bool>("publish_tf", true);
 
     // The minimum tranlational distance and rotation angle between keyframes.
     // If this value is zero, frames are always compared with the previous frame
