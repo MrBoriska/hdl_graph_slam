@@ -9,6 +9,13 @@
 #include <pclomp/ndt_omp.h>
 #include <pclomp/gicp_omp.h>
 
+#include <fast_gicp/gicp/fast_gicp.hpp>
+#include <fast_gicp/gicp/fast_vgicp.hpp>
+
+#ifdef USE_VGICP_CUDA
+#include <fast_gicp/gicp/fast_vgicp_cuda.hpp>
+#endif
+
 namespace hdl_graph_slam {
 
 boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> select_registration_method(ros::NodeHandle& pnh) {
@@ -43,11 +50,7 @@ boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> select_regi
       gicp->setMaximumOptimizerIterations(pnh.param<int>("gicp_max_optimizer_iterations", 20));
       return gicp;
     }
-  } else {
-    if(registration_method.find("NDT") == std::string::npos ) {
-      std::cerr << "warning: unknown registration type(" << registration_method << ")" << std::endl;
-      std::cerr << "       : use NDT" << std::endl;
-    }
+  } else if (registration_method.find("NDT") != std::string::npos) {
 
     double ndt_resolution = pnh.param<double>("ndt_resolution", 0.5);
     if(registration_method.find("OMP") == std::string::npos) {
@@ -76,6 +79,51 @@ boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> select_regi
         ndt->setNeighborhoodSearchMethod(pclomp::DIRECT7);
       }
       return ndt;
+    }
+  } else {
+    if(registration_method.find("VGICP") != std::string::npos ) {
+      std::cerr << "warning: unknown registration type(" << registration_method << ")" << std::endl;
+      std::cerr << "       : use FGICP" << std::endl;
+    }
+
+    double vgicp_resolution = pnh.param<double>("vgicp_resolution", 1.0);
+
+    if(registration_method.find("CUDA") == std::string::npos) {
+      std::cout << "registration: VGICP_MT" << std::endl;
+      boost::shared_ptr<fast_gicp::FastVGICP<PointT, PointT>> fast_vgicp(new fast_gicp::FastVGICP<PointT, PointT>());
+      fast_vgicp->setTransformationEpsilon(pnh.param<double>("transformation_epsilon", 0.01));
+      fast_vgicp->setMaximumIterations(pnh.param<int>("maximum_iterations", 64));
+      //fast_vgicp->setUseReciprocalCorrespondences(pnh.param<bool>("use_reciprocal_correspondences", false));
+      fast_vgicp->setCorrespondenceRandomness(pnh.param<int>("gicp_correspondence_randomness", 20));
+      //fast_vgicp->setMaximumOptimizerIterations(pnh.param<int>("gicp_max_optimizer_iterations", 20));
+
+      fast_vgicp->setResolution(vgicp_resolution);
+
+      return fast_vgicp;
+    } else {
+      boost::shared_ptr<fast_gicp::FastVGICPCuda<PointT, PointT>> fast_vgicp_cuda(new fast_gicp::FastVGICPCuda<PointT, PointT>());
+
+      fast_vgicp_cuda->setTransformationEpsilon(pnh.param<double>("transformation_epsilon", 0.01));
+      fast_vgicp_cuda->setMaximumIterations(pnh.param<int>("maximum_iterations", 64));
+      //fast_vgicp_cuda->setUseReciprocalCorrespondences(pnh.param<bool>("use_reciprocal_correspondences", false));
+      fast_vgicp_cuda->setCorrespondenceRandomness(pnh.param<int>("gicp_correspondence_randomness", 20));
+      //fast_vgicp_cuda->setMaximumOptimizerIterations(pnh.param<int>("gicp_max_optimizer_iterations", 20));
+
+      fast_vgicp_cuda->setResolution(vgicp_resolution);
+
+
+      // use GPU-based bruteforce nearest neighbor search for covariance estimation
+      // this would be a good choice if your PC has a weak CPU and a strong GPU (e.g., NVIDIA Jetson)
+      if (pnh.param<bool>("gpu_bruteforce", false))
+        fast_vgicp_cuda->setNearesetNeighborSearchMethod(fast_gicp::GPU_BRUTEFORCE);
+      
+      // vgicp_cuda uses CPU-based parallel KDTree in covariance estimation by default
+      // on a modern CPU, it is faster than GPU_BRUTEFORCE
+      // vgicp_cuda.setNearesetNeighborSearchMethod(fast_gicp::CPU_PARALLEL_KDTREE);
+      else
+        fast_vgicp_cuda->setNearesetNeighborSearchMethod(fast_gicp::CPU_PARALLEL_KDTREE);
+
+      return fast_vgicp_cuda;
     }
   }
 

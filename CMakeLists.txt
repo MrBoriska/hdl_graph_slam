@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   interactive_markers
   ndt_omp
+  fast_gicp
 )
 
 find_package(PCL 1.7 REQUIRED)
@@ -38,6 +39,11 @@ find_package(OpenMP)
 if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif()
+
+find_package(CUDA)
+if(CUDA_FOUND)
+  add_definitions(-DUSE_VGICP_CUDA)
 endif()
 
 ########################

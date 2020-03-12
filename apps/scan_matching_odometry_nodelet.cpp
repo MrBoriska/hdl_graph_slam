@@ -52,7 +52,6 @@ private:
     auto& pnh = private_nh;
     points_topic = pnh.param<std::string>("points_topic", "/velodyne_points");
     odom_frame_id = pnh.param<std::string>("odom_frame_id", "odom");
-    base_frame_id = pnh.param<std::string>("base_frame_id", "base_link");
     publish_tf = pnh.param<bool>("publish_tf", true);
 
     // The minimum tranlational distance and rotation angle between keyframes.
@@ -214,9 +213,9 @@ private:
    * @param stamp  timestamp
    * @param pose   odometry pose to be published
    */
-  void publish_odometry(const ros::Time& stamp, const std::string& base_frame_id, const Eigen::Matrix4f& pose) {
+  void publish_odometry(const ros::Time& stamp, const std::string& cloud_frame_id, const Eigen::Matrix4f& pose) {
     // broadcast the transform over tf
-    geometry_msgs::TransformStamped odom_trans = matrix2transform(stamp, pose, odom_frame_id, this->base_frame_id);
+    geometry_msgs::TransformStamped odom_trans = matrix2transform(stamp, pose, odom_frame_id, cloud_frame_id);
 
     // publish the transform
     nav_msgs::Odometry odom;
@@ -228,12 +227,12 @@ private:
     odom.pose.pose.position.z = pose(2, 3);
     odom.pose.pose.orientation = odom_trans.transform.rotation;
 
-    odom.child_frame_id = base_frame_id;
+    odom.child_frame_id = cloud_frame_id;
     //odom.twist.twist.linear.x = 0.0;
     //odom.twist.twist.linear.y = 0.0;
     //odom.twist.twist.angular.z = 0.0;
 
-    prev_odom.child_frame_id = base_frame_id;
+    prev_odom.child_frame_id = cloud_frame_id;
     double x = odom.pose.pose.position.x;
     double px = prev_odom.pose.pose.position.x;
     double y = odom.pose.pose.position.y;
@@ -289,7 +288,6 @@ private:
 
   std::string points_topic;
   std::string odom_frame_id;
-  std::string base_frame_id;
   bool publish_tf;
   ros::Publisher read_until_pub;
 
