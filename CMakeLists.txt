@@ -18,7 +18,6 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   interactive_markers
   ndt_omp
-  fast_gicp
 )
 
 find_package(PCL 1.7 REQUIRED)
@@ -26,9 +25,9 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
-message(STATUS "PCL_INCLUDE_DIRS:" ${PCL_INCLUDE_DIRS})
-message(STATUS "PCL_LIBRARY_DIRS:" ${PCL_LIBRARY_DIRS})
-message(STATUS "PCL_DEFINITIONS:" ${PCL_DEFINITIONS})
+#message(STATUS "PCL_INCLUDE_DIRS:" ${PCL_INCLUDE_DIRS})
+#message(STATUS "PCL_LIBRARY_DIRS:" ${PCL_LIBRARY_DIRS})
+#message(STATUS "PCL_DEFINITIONS:" ${PCL_DEFINITIONS})
 
 find_package(G2O REQUIRED)
 include_directories(SYSTEM ${G2O_INCLUDE_DIR} ${G2O_INCLUDE_DIRS})
@@ -41,9 +40,18 @@ if (OPENMP_FOUND)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
 
-find_package(CUDA)
-if(CUDA_FOUND)
-  add_definitions(-DUSE_VGICP_CUDA)
+# Add support fast_gicp (https://github.com/SMRT-AIST/fast_gicp)
+find_package(fast_gicp)
+if (fast_gicp_FOUND)
+  message(STATUS "Building with VGICP_MT support")
+  list(APPEND catkin_INCLUDE_DIRS ${fast_gicp_INCLUDE_DIRS})
+  list(APPEND catkin_LIBRARIES ${fast_gicp_LIBRARIES})
+  add_definitions(-DUSE_FASTGICP)
+  find_package(CUDA)
+  if(CUDA_FOUND)
+    message(STATUS "Building with VGICP_CUDA support")
+    add_definitions(-DUSE_VGICP_CUDA)
+  endif()
 endif()
 
 ########################
