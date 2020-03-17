@@ -9,11 +9,13 @@
 #include <pclomp/ndt_omp.h>
 #include <pclomp/gicp_omp.h>
 
+#ifdef USE_FASTGICP
 #include <fast_gicp/gicp/fast_gicp.hpp>
 #include <fast_gicp/gicp/fast_vgicp.hpp>
 
 #ifdef USE_VGICP_CUDA
 #include <fast_gicp/gicp/fast_vgicp_cuda.hpp>
+#endif
 #endif
 
 namespace hdl_graph_slam {
@@ -80,7 +82,9 @@ boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> select_regi
       }
       return ndt;
     }
-  } else {
+  }
+  #ifdef USE_FASTGICP
+   else {
     if(registration_method.find("VGICP") != std::string::npos ) {
       std::cerr << "warning: unknown registration type(" << registration_method << ")" << std::endl;
       std::cerr << "       : use FGICP" << std::endl;
@@ -101,6 +105,7 @@ boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> select_regi
 
       return fast_vgicp;
     } else {
+      #ifdef USE_VGICP_CUDA
       boost::shared_ptr<fast_gicp::FastVGICPCuda<PointT, PointT>> fast_vgicp_cuda(new fast_gicp::FastVGICPCuda<PointT, PointT>());
 
       fast_vgicp_cuda->setTransformationEpsilon(pnh.param<double>("transformation_epsilon", 0.01));
@@ -124,8 +129,10 @@ boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> select_regi
         fast_vgicp_cuda->setNearesetNeighborSearchMethod(fast_gicp::CPU_PARALLEL_KDTREE);
 
       return fast_vgicp_cuda;
+      #endif
     }
   }
+  #endif
 
   return nullptr;
 }
