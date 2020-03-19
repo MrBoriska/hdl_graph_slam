@@ -223,7 +223,10 @@ private:
       Eigen::Isometry3d relative_pose = keyframe->odom.inverse() * prev_keyframe->odom;
       Eigen::MatrixXd information = inf_calclator->calc_information_matrix(keyframe->cloud, prev_keyframe->cloud, relative_pose);
       auto edge = graph_slam->add_se3_edge(keyframe->node, prev_keyframe->node, relative_pose, information);
-      graph_slam->add_robust_kernel(edge, private_nh.param<std::string>("odometry_edge_robust_kernel", "NONE"), private_nh.param<double>("odometry_edge_robust_kernel_size", 1.0));
+      graph_slam->add_robust_kernel(edge,
+        private_nh.param<std::string>("odometry_edge_robust_kernel", "NONE"),
+        private_nh.param<double>("odometry_edge_robust_kernel_size", 1.0)
+      );
     }
 
     std_msgs::Header read_until;
@@ -336,7 +339,10 @@ private:
         information_matrix(2, 2) /= gps_edge_stddev_z;
         edge = graph_slam->add_se3_prior_xyz_edge(keyframe->node, xyz, information_matrix);
       }
-      graph_slam->add_robust_kernel(edge, private_nh.param<std::string>("gps_edge_robust_kernel", "NONE"), private_nh.param<double>("gps_edge_robust_kernel_size", 1.0));
+      graph_slam->add_robust_kernel(edge,
+        private_nh.param<std::string>("gps_edge_robust_kernel", "NONE"),
+        private_nh.param<double>("gps_edge_robust_kernel_size", 1.0)
+      );
 
       updated = true;
     }
@@ -426,13 +432,19 @@ private:
       if(enable_imu_orientation) {
         Eigen::MatrixXd info = Eigen::MatrixXd::Identity(3, 3) / imu_orientation_edge_stddev;
         auto edge = graph_slam->add_se3_prior_quat_edge(keyframe->node, *keyframe->orientation, info);
-        graph_slam->add_robust_kernel(edge, private_nh.param<std::string>("imu_orientation_edge_robust_kernel", "NONE"), private_nh.param<double>("imu_orientation_edge_robust_kernel_size", 1.0));
+        graph_slam->add_robust_kernel(edge,
+          private_nh.param<std::string>("imu_orientation_edge_robust_kernel", "NONE"),
+          private_nh.param<double>("imu_orientation_edge_robust_kernel_size", 1.0)
+        );
       }
 
       if(enable_imu_acceleration) {
         Eigen::MatrixXd info = Eigen::MatrixXd::Identity(3, 3) / imu_acceleration_edge_stddev;
         g2o::OptimizableGraph::Edge* edge = graph_slam->add_se3_prior_vec_edge(keyframe->node, -Eigen::Vector3d::UnitZ(), *keyframe->acceleration, info);
-        graph_slam->add_robust_kernel(edge, private_nh.param<std::string>("imu_acceleration_edge_robust_kernel", "NONE"), private_nh.param<double>("imu_acceleration_edge_robust_kernel_size", 1.0));
+        graph_slam->add_robust_kernel(edge,
+          private_nh.param<std::string>("imu_acceleration_edge_robust_kernel", "NONE"),
+          private_nh.param<double>("imu_acceleration_edge_robust_kernel_size", 1.0)
+        );
       }
       updated = true;
     }
@@ -495,7 +507,10 @@ private:
       Eigen::Vector4d coeffs(floor_coeffs->coeffs[0], floor_coeffs->coeffs[1], floor_coeffs->coeffs[2], floor_coeffs->coeffs[3]);
       Eigen::Matrix3d information = Eigen::Matrix3d::Identity() * (1.0 / floor_edge_stddev);
       auto edge = graph_slam->add_se3_plane_edge(keyframe->node, floor_plane_node, coeffs, information);
-      graph_slam->add_robust_kernel(edge, private_nh.param<std::string>("floor_edge_robust_kernel", "NONE"), private_nh.param<double>("floor_edge_robust_kernel_size", 1.0));
+      graph_slam->add_robust_kernel(edge,
+        private_nh.param<std::string>("floor_edge_robust_kernel", "NONE"),
+        private_nh.param<double>("floor_edge_robust_kernel_size", 1.0)
+      );
 
       keyframe->floor_coeffs = coeffs;
 
@@ -527,7 +542,7 @@ private:
     snapshot = keyframes_snapshot;
     keyframes_snapshot_mutex.unlock();
 
-    auto cloud = map_cloud_generator->generate(snapshot, 0.05);
+    auto cloud = map_cloud_generator->generate(snapshot, map_cloud_resolution);
     if(!cloud) {
       return;
     }
@@ -570,7 +585,10 @@ private:
       Eigen::Isometry3d relpose(loop->relative_pose.cast<double>());
       Eigen::MatrixXd information_matrix = inf_calclator->calc_information_matrix(loop->key1->cloud, loop->key2->cloud, relpose);
       auto edge = graph_slam->add_se3_edge(loop->key1->node, loop->key2->node, relpose, information_matrix);
-      graph_slam->add_robust_kernel(edge, private_nh.param<std::string>("loop_closure_edge_robust_kernel", "NONE"), private_nh.param<double>("loop_closure_edge_robust_kernel_size", 1.0));
+      graph_slam->add_robust_kernel(edge,
+        private_nh.param<std::string>("loop_closure_edge_robust_kernel", "NONE"),
+        private_nh.param<double>("loop_closure_edge_robust_kernel_size", 1.0)
+      );
     }
 
     std::copy(new_keyframes.begin(), new_keyframes.end(), std::back_inserter(keyframes));
